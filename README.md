@@ -84,6 +84,25 @@ set -g @jump-skip-wizard 0             # 1 = never prompt for auto-update on ver
 
 `@jump-key-select` is a second, opt-in binding: same picker, but on landing it enters copy-mode, begins a selection, and extends it across the matched query — ready to yank.
 
+### 🎨 Colors (optional)
+
+The four highlight roles have built-in defaults (unchanged from earlier releases). Leave every option unset for the classic look, or set any of them to override only that role — the rest keep their defaults.
+
+```tmux
+# Example overrides — tune to match your theme.
+set -g @jump-color-dim      'fg=#7b7c7e,dim'                # non-matching text
+set -g @jump-color-match    'fg=#0c0c0c,bg=#fdbd27,bold'    # matched text
+set -g @jump-color-selected 'fg=#0c0c0c,bg=#ee5396,bold'    # currently-selected match
+set -g @jump-color-hint     'fg=#0c0c0c,bg=#78a9ff,bold'    # hint-mode badges
+```
+
+Spec grammar (comma-separated, whitespace and case tolerant):
+
+- `fg=COLOR`, `bg=COLOR` — `#RRGGBB`, `colour0-255` / `color0-255`, bare `0-255`, named (`black`…`white`, `brightblack`…`brightwhite`), or `default`
+- Attributes: `bold`, `dim`, `italic`, `underline`, `blink`, `reverse`
+
+A malformed spec logs a warning and falls back to the built-in default for that role.
+
 ---
 
 ## 🔬 How it works

@@ -64,20 +64,40 @@ if [ -n "${JUMP_DEBUG:-}" ]; then
 	} >>"${JUMP_DEBUG}" 2>/dev/null || true
 fi
 
+# Read @jump-* options at invocation time so users can tweak colors/
+# hints/delay live without re-sourcing the plugin script. Env-var
+# overrides (JUMP_*) still win to keep ad-hoc testing simple.
+opt() { tmux show-option -gqv "$1" 2>/dev/null || true; }
+
+hints_val="${JUMP_HINTS:-$(opt @jump-hints)}"
 hints_arg=""
-if [ -n "${JUMP_HINTS:-}" ]; then
-	hints_arg="-hints $(printf %q "$JUMP_HINTS")"
+if [ -n "$hints_val" ]; then
+	hints_arg="-hints $(printf %q "$hints_val")"
 fi
 
+delay_val="${JUMP_AUTO_HINT_DELAY:-$(opt @jump-auto-hint-delay)}"
 delay_arg=""
-if [ -n "${JUMP_AUTO_HINT_DELAY:-}" ]; then
-	case "$JUMP_AUTO_HINT_DELAY" in -[0-9]*|[0-9]*)
-		delay_arg="-auto-hint-delay $(printf %q "$JUMP_AUTO_HINT_DELAY")"
+if [ -n "$delay_val" ]; then
+	case "$delay_val" in -[0-9]*|[0-9]*)
+		delay_arg="-auto-hint-delay $(printf %q "$delay_val")"
 	;; esac
 fi
 
+color_args=""
+for pair in "color-dim:JUMP_COLOR_DIM:@jump-color-dim" \
+	"color-match:JUMP_COLOR_MATCH:@jump-color-match" \
+	"color-selected:JUMP_COLOR_SELECTED:@jump-color-selected" \
+	"color-hint:JUMP_COLOR_HINT:@jump-color-hint"; do
+	IFS=: read -r flag var opt_name <<<"$pair"
+	val="${!var:-}"
+	[ -z "$val" ] && val="$(opt "$opt_name")"
+	if [ -n "$val" ]; then
+		color_args="$color_args -$flag $(printf %q "$val")"
+	fi
+done
+
 tmux display-popup -E -B -w "$w" -h "$h" -x P -y P \
-	"$BIN -capture $(printf %q "$cap") -out $(printf %q "$res") -w $w -h $h $hints_arg $delay_arg" \
+	"$BIN -capture $(printf %q "$cap") -out $(printf %q "$res") -w $w -h $h $hints_arg $delay_arg $color_args" \
 	2>/dev/null || exit 0
 
 [ -s "$res" ] || exit 0

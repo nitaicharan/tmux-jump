@@ -62,6 +62,32 @@ func TestRenderNoHintsWhenDisabled(t *testing.T) {
 	}
 }
 
+func TestRenderEmitsDefaultEscapes(t *testing.T) {
+	// Locks in that the unconfigured render still emits the historical
+	// defaults — leaving every @jump-color-* option unset must be a
+	// no-op vs. pre-color-config releases.
+	rs := rows("foo bar")
+	ms := findMatches(rs, []rune("foo"))
+	out := render(rs, ms, 0, "foo", 80, 24, false, []rune("duhetonasi"))
+	for _, esc := range []string{"\x1b[2;37m", "\x1b[1;30;103m"} {
+		if !strings.Contains(out, esc) {
+			t.Errorf("missing default escape %q in render output", esc)
+		}
+	}
+}
+
+func TestRenderUsesOverriddenEscapes(t *testing.T) {
+	saved := ansiMatch
+	defer func() { ansiMatch = saved }()
+	ansiMatch = "\x1b[SENTINEL"
+	rs := rows("foo bar")
+	ms := findMatches(rs, []rune("foo"))
+	out := render(rs, ms, 0, "foo", 80, 24, false, []rune("duhetonasi"))
+	if !strings.Contains(out, "SENTINEL") {
+		t.Errorf("override of ansiMatch did not reach render output")
+	}
+}
+
 func TestRenderNavigableAtTenMatches(t *testing.T) {
 	// 10 matches: "a" in 10 distinct rows
 	lines := make([]string, 10)

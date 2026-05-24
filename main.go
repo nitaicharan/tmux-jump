@@ -11,12 +11,16 @@ import (
 )
 
 var (
-	capturePath  = flag.String("capture", "", "path to captured pane file")
-	outPath      = flag.String("out", "", "path to write result (row,col)")
-	width        = flag.Int("w", 80, "overlay width")
-	height       = flag.Int("h", 24, "overlay height")
-	hintsFlag    = flag.String("hints", defaultHints, "hint chars (up to 10) for Tab-triggered hint mode")
-	autoHintMsec = flag.Int("auto-hint-delay", 300, "ms idle before hints auto-show when ≤10 matches; 0 disables (rounded up to nearest 100ms)")
+	capturePath   = flag.String("capture", "", "path to captured pane file")
+	outPath       = flag.String("out", "", "path to write result (row,col)")
+	width         = flag.Int("w", 80, "overlay width")
+	height        = flag.Int("h", 24, "overlay height")
+	hintsFlag     = flag.String("hints", defaultHints, "hint chars (up to 10) for Tab-triggered hint mode")
+	autoHintMsec  = flag.Int("auto-hint-delay", 300, "ms idle before hints auto-show when ≤10 matches; 0 disables (rounded up to nearest 100ms)")
+	colorDim      = flag.String("color-dim", "", "tmux-style spec for non-match text (e.g. fg=#7b7c7e,dim)")
+	colorMatch    = flag.String("color-match", "", "tmux-style spec for matched text")
+	colorSelected = flag.String("color-selected", "", "tmux-style spec for the currently-selected match")
+	colorHint     = flag.String("color-hint", "", "tmux-style spec for hint-mode badges")
 )
 
 var version = "dev"
@@ -49,6 +53,11 @@ func run() (code int) {
 		fmt.Fprintln(os.Stderr, "usage: tmux-jump -capture FILE -out FILE [-w W] [-h H] [-hints STR]")
 		return 2
 	}
+
+	applyStyle("dim", *colorDim, &ansiDim)
+	applyStyle("match", *colorMatch, &ansiMatch)
+	applyStyle("selected", *colorSelected, &ansiSelected)
+	applyStyle("hint", *colorHint, &ansiHint)
 
 	hints := []rune(*hintsFlag)
 	if len(hints) > selectLimit {
