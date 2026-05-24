@@ -85,6 +85,25 @@ set -g @jump-skip-wizard 0                  # 1 = never prompt for auto-update o
 
 > ⚠️ **Removed in this version:** `@jump-auto-hint-delay`. With flash-style label exclusion the timer is no longer meaningful — labels render synchronously. The plugin emits a one-time `tmux display-message` warning if it sees the option set in your config.
 
+### 🎨 Colors (optional)
+
+The four highlight roles have built-in defaults (unchanged from earlier releases). Leave every option unset for the classic look, or set any of them to override only that role — the rest keep their defaults.
+
+```tmux
+# Example overrides — tune to match your theme.
+set -g @jump-color-dim      'fg=#7b7c7e,dim'                # non-matching text
+set -g @jump-color-match    'fg=#0c0c0c,bg=#fdbd27,bold'    # matched text
+set -g @jump-color-selected 'fg=#0c0c0c,bg=#ee5396,bold'    # currently-selected match
+set -g @jump-color-hint     'fg=#0c0c0c,bg=#78a9ff,bold'    # label badges
+```
+
+Spec grammar (comma-separated, whitespace and case tolerant):
+
+- `fg=COLOR`, `bg=COLOR` — `#RRGGBB`, `colour0-255` / `color0-255`, bare `0-255`, named (`black`…`white`, `brightblack`…`brightwhite`), or `default`
+- Attributes: `bold`, `dim`, `italic`, `underline`, `blink`, `reverse`
+
+A malformed spec logs a warning and falls back to the built-in default for that role.
+
 ---
 
 ## 🔬 How it works

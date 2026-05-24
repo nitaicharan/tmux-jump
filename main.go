@@ -11,12 +11,16 @@ import (
 )
 
 var (
-	capturePath = flag.String("capture", "", "path to captured pane file")
-	outPath     = flag.String("out", "", "path to write result (row,col)")
-	width       = flag.Int("w", 80, "overlay width")
-	height      = flag.Int("h", 24, "overlay height")
-	hintsFlag   = flag.String("hints", defaultHints, "hint chars (up to 10) used as jump labels")
-	minPatternL = flag.Int("min-pattern-length", 0, "minimum query length before labels render (flash: label.min_pattern_length)")
+	capturePath   = flag.String("capture", "", "path to captured pane file")
+	outPath       = flag.String("out", "", "path to write result (row,col)")
+	width         = flag.Int("w", 80, "overlay width")
+	height        = flag.Int("h", 24, "overlay height")
+	hintsFlag     = flag.String("hints", defaultHints, "hint chars (up to 10) used as jump labels")
+	minPatternL   = flag.Int("min-pattern-length", 0, "minimum query length before labels render (flash: label.min_pattern_length)")
+	colorDim      = flag.String("color-dim", "", "tmux-style spec for non-match text (e.g. fg=#7b7c7e,dim)")
+	colorMatch    = flag.String("color-match", "", "tmux-style spec for matched text")
+	colorSelected = flag.String("color-selected", "", "tmux-style spec for the currently-selected match")
+	colorHint     = flag.String("color-hint", "", "tmux-style spec for hint-mode badges")
 )
 
 var version = "dev"
@@ -49,6 +53,11 @@ func run() (code int) {
 		fmt.Fprintln(os.Stderr, "usage: tmux-jump -capture FILE -out FILE [-w W] [-h H] [-hints STR] [-min-pattern-length N]")
 		return 2
 	}
+
+	applyStyle("dim", *colorDim, &ansiDim)
+	applyStyle("match", *colorMatch, &ansiMatch)
+	applyStyle("selected", *colorSelected, &ansiSelected)
+	applyStyle("hint", *colorHint, &ansiHint)
 
 	hints := []rune(*hintsFlag)
 	if len(hints) > selectLimit {

@@ -6,15 +6,18 @@ import (
 )
 
 const (
-	ansiReset    = "\x1b[0m"
+	ansiReset   = "\x1b[0m"
+	ansiStatus  = "\x1b[7m"
+	ansiClear   = "\x1b[2J\x1b[H"
+	ansiHideCur = "\x1b[?25l"
+	ansiShowCur = "\x1b[?25h"
+)
+
+var (
 	ansiDim      = "\x1b[2;37m"
 	ansiMatch    = "\x1b[1;30;103m"
 	ansiSelected = "\x1b[1;97;41m"
 	ansiHint     = "\x1b[1;97;44m"
-	ansiStatus   = "\x1b[7m"
-	ansiClear    = "\x1b[2J\x1b[H"
-	ansiHideCur  = "\x1b[?25l"
-	ansiShowCur  = "\x1b[?25h"
 )
 
 // cell mark: 0 none, 1 match, 2 selected match, 3 hint badge
