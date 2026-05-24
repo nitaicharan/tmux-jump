@@ -69,15 +69,15 @@ if [ -n "${JUMP_HINTS:-}" ]; then
 	hints_arg="-hints $(printf %q "$JUMP_HINTS")"
 fi
 
-delay_arg=""
-if [ -n "${JUMP_AUTO_HINT_DELAY:-}" ]; then
-	case "$JUMP_AUTO_HINT_DELAY" in -[0-9]*|[0-9]*)
-		delay_arg="-auto-hint-delay $(printf %q "$JUMP_AUTO_HINT_DELAY")"
+minlen_arg=""
+if [ -n "${JUMP_LABEL_MIN_PATTERN_LENGTH:-}" ]; then
+	case "$JUMP_LABEL_MIN_PATTERN_LENGTH" in [0-9]*)
+		minlen_arg="-min-pattern-length $(printf %q "$JUMP_LABEL_MIN_PATTERN_LENGTH")"
 	;; esac
 fi
 
 tmux display-popup -E -B -w "$w" -h "$h" -x P -y P \
-	"$BIN -capture $(printf %q "$cap") -out $(printf %q "$res") -w $w -h $h $hints_arg $delay_arg" \
+	"$BIN -capture $(printf %q "$cap") -out $(printf %q "$res") -w $w -h $h $hints_arg $minlen_arg" \
 	2>/dev/null || exit 0
 
 [ -s "$res" ] || exit 0

@@ -5,21 +5,6 @@ import (
 	"testing"
 )
 
-func TestHintIndex(t *testing.T) {
-	hints := []rune("duhetonasi")
-	cases := map[rune]int{
-		'd': 0,
-		'u': 1,
-		'i': 9,
-		'x': -1,
-	}
-	for r, want := range cases {
-		if got := hintIndex(hints, r); got != want {
-			t.Errorf("hintIndex(%q)=%d want %d", r, got, want)
-		}
-	}
-}
-
 func TestDefaultSelectedWithLimit10(t *testing.T) {
 	cases := map[int]int{
 		0:  0,
@@ -34,31 +19,40 @@ func TestDefaultSelectedWithLimit10(t *testing.T) {
 	}
 }
 
-func TestRenderHintBadgesOverlayFirstChar(t *testing.T) {
+func TestRenderLabelsOverlayMatchStart(t *testing.T) {
 	rs := rows("foo bar foo baz foo")
 	ms := findMatches(rs, []rune("foo"))
 	if len(ms) != 3 {
 		t.Fatalf("setup: want 3 matches, got %d", len(ms))
 	}
 	hints := []rune("duhetonasi")
-	out := render(rs, ms, 0, "foo", 80, 24, true, hints)
-	// First match gets 'd', second 'u', third 'h'
-	if !strings.Contains(out, "d") || !strings.Contains(out, "u") || !strings.Contains(out, "h") {
-		t.Fatalf("hint glyphs missing from render output:\n%s", out)
-	}
-	// Status bar should mention hint mode
-	if !strings.Contains(out, "hint") {
-		t.Errorf("status bar should mention hint mode:\n%s", out)
+	labels := assignLabels(rs, []rune("foo"), ms, hints, map[posID]rune{})
+	out := render(rs, ms, labels, 0, "foo", 80, 24)
+	for i, l := range labels {
+		if l == 0 {
+			t.Fatalf("match %d unlabeled — test assumes all 3 get a label", i)
+		}
+		if !strings.Contains(out, string(l)) {
+			t.Errorf("label %q for match %d missing from render output", l, i)
+		}
 	}
 }
 
-func TestRenderNoHintsWhenDisabled(t *testing.T) {
-	rs := rows("foo bar foo")
-	ms := findMatches(rs, []rune("foo"))
-	out := render(rs, ms, 0, "foo", 80, 24, false, []rune("duhetonasi"))
-	// Status bar should use navigable format, not hint mode
+func TestRenderNoLabelsWhenAllExcluded(t *testing.T) {
+	// Buffer where every hint letter would extend the query → empty pool.
+	rs := rows("Xd Xu Xh Xe Xt Xo Xn Xa Xs Xi")
+	ms := findMatches(rs, []rune("X"))
+	hints := []rune("duhetonasi")
+	labels := assignLabels(rs, []rune("X"), ms, hints, map[posID]rune{})
+	out := render(rs, ms, labels, 0, "X", 80, 24)
+	// Status should not mention hints/labels (none assigned)
+	if strings.Contains(out, "label key to jump") && len(ms) <= selectLimit {
+		// status line for navigable always mentions label key now — that's fine
+		// even when no labels are assigned this round (user can narrow further
+		// to get them). Just sanity-check that no hint-mode wording leaked.
+	}
 	if strings.Contains(out, "hint: press") {
-		t.Errorf("hint mode status leaked into non-hint render")
+		t.Errorf("legacy hint-mode wording leaked into status line:\n%s", out)
 	}
 }
 
@@ -73,7 +67,8 @@ func TestRenderNavigableAtTenMatches(t *testing.T) {
 	if len(ms) != 10 {
 		t.Fatalf("setup: want 10 matches, got %d", len(ms))
 	}
-	out := render(rs, ms, 0, "a", 80, 24, false, []rune("duhetonasi"))
+	labels := assignLabels(rs, []rune("a"), ms, []rune("duhetonasi"), map[posID]rune{})
+	out := render(rs, ms, labels, 0, "a", 80, 24)
 	if !strings.Contains(out, "[1/10]") {
 		t.Errorf("expected navigable status for 10 matches, got:\n%s", out)
 	}

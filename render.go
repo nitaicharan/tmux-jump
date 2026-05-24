@@ -18,7 +18,12 @@ const (
 )
 
 // cell mark: 0 none, 1 match, 2 selected match, 3 hint badge
-func render(rows [][]rune, matches []Match, selected int, query string, width, height int, hintMode bool, hints []rune) string {
+//
+// labels[i] is the rune assigned to matches[i] by assignLabels (0 = unlabeled).
+// Labels render whenever non-zero — there is no mode toggle. Selected-match
+// highlight (mark=2) is independent of labels: an arrow-selected match still
+// gets the selected color even when labeled.
+func render(rows [][]rune, matches []Match, labels []rune, selected int, query string, width, height int) string {
 	var b strings.Builder
 	b.WriteString(ansiHideCur)
 	b.WriteString(ansiClear)
@@ -29,7 +34,6 @@ func render(rows [][]rune, matches []Match, selected int, query string, width, h
 	}
 
 	navigable := len(matches) > 1 && len(matches) <= selectLimit
-	showHints := hintMode && navigable && len(hints) > 0
 
 	hi := make([][]byte, len(rows))
 	hintGlyph := map[int]map[int]rune{}
@@ -41,18 +45,18 @@ func render(rows [][]rune, matches []Match, selected int, query string, width, h
 			hi[m.Row] = make([]byte, len(rows[m.Row]))
 		}
 		mark := byte(1)
-		if navigable && !showHints && i == selected {
+		if navigable && i == selected {
 			mark = 2
 		}
 		for k := 0; k < m.Len && m.Col+k < len(hi[m.Row]); k++ {
 			hi[m.Row][m.Col+k] = mark
 		}
-		if showHints && i < len(hints) && m.Col < len(hi[m.Row]) {
+		if i < len(labels) && labels[i] != 0 && m.Col < len(hi[m.Row]) {
 			hi[m.Row][m.Col] = 3
 			if hintGlyph[m.Row] == nil {
 				hintGlyph[m.Row] = map[int]rune{}
 			}
-			hintGlyph[m.Row][m.Col] = hints[i]
+			hintGlyph[m.Row][m.Col] = labels[i]
 		}
 	}
 
@@ -75,12 +79,10 @@ func render(rows [][]rune, matches []Match, selected int, query string, width, h
 	b.WriteString(ansiStatus)
 	var status string
 	switch {
-	case showHints:
-		status = fmt.Sprintf(" jump> %s  [hint: press key]  Esc/Tab cancel hints ", query)
 	case len(query) == 0:
 		status = " jump> (type to narrow; Esc to cancel) "
 	case navigable:
-		status = fmt.Sprintf(" jump> %s  [%d/%d]  Tab hints · ↑↓ pick · Enter jump ", query, selected+1, len(matches))
+		status = fmt.Sprintf(" jump> %s  [%d/%d]  ↑↓ pick · Enter jump · label key to jump ", query, selected+1, len(matches))
 	default:
 		status = fmt.Sprintf(" jump> %s  (%d matches) ", query, len(matches))
 	}

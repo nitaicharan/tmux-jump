@@ -11,12 +11,12 @@ import (
 )
 
 var (
-	capturePath  = flag.String("capture", "", "path to captured pane file")
-	outPath      = flag.String("out", "", "path to write result (row,col)")
-	width        = flag.Int("w", 80, "overlay width")
-	height       = flag.Int("h", 24, "overlay height")
-	hintsFlag    = flag.String("hints", defaultHints, "hint chars (up to 10) for Tab-triggered hint mode")
-	autoHintMsec = flag.Int("auto-hint-delay", 300, "ms idle before hints auto-show when ≤10 matches; 0 disables (rounded up to nearest 100ms)")
+	capturePath = flag.String("capture", "", "path to captured pane file")
+	outPath     = flag.String("out", "", "path to write result (row,col)")
+	width       = flag.Int("w", 80, "overlay width")
+	height      = flag.Int("h", 24, "overlay height")
+	hintsFlag   = flag.String("hints", defaultHints, "hint chars (up to 10) used as jump labels")
+	minPatternL = flag.Int("min-pattern-length", 0, "minimum query length before labels render (flash: label.min_pattern_length)")
 )
 
 var version = "dev"
@@ -46,18 +46,13 @@ func run() (code int) {
 
 	flag.Parse()
 	if *capturePath == "" || *outPath == "" {
-		fmt.Fprintln(os.Stderr, "usage: tmux-jump -capture FILE -out FILE [-w W] [-h H] [-hints STR]")
+		fmt.Fprintln(os.Stderr, "usage: tmux-jump -capture FILE -out FILE [-w W] [-h H] [-hints STR] [-min-pattern-length N]")
 		return 2
 	}
 
 	hints := []rune(*hintsFlag)
 	if len(hints) > selectLimit {
 		hints = hints[:selectLimit]
-	}
-
-	autoHintQuanta := 0
-	if *autoHintMsec > 0 {
-		autoHintQuanta = (*autoHintMsec + 99) / 100
 	}
 
 	data, err := os.ReadFile(*capturePath)
@@ -90,40 +85,25 @@ func run() (code int) {
 	query := []rune{}
 	var matches []Match
 	selected := 0
-	hintMode := false
-	autoArmed := false
+	reuse := map[posID]rune{}
 
 	for {
-		fmt.Fprint(tty, render(rows, matches, selected, string(query), *width, *height, hintMode, hints))
+		var labels []rune
+		if len(query) >= *minPatternL && len(matches) > 0 && len(hints) > 0 {
+			labels = assignLabels(rows, query, matches, hints, reuse)
+		}
+		fmt.Fprint(tty, render(rows, matches, labels, selected, string(query), *width, *height))
 
-		navigable := len(matches) >= 2 && len(matches) <= selectLimit && len(hints) > 0
-		var b byte
-		var ok bool
-		if !hintMode && autoArmed && navigable && autoHintQuanta > 0 {
-			b, ok = readBytePoll(tty, autoHintQuanta)
-			if !ok {
-				hintMode = true
-				autoArmed = false
-				continue
-			}
-		} else {
-			b, ok = readByte(tty, true)
-			if !ok {
-				return 0
-			}
+		b, ok := readByte(tty, true)
+		if !ok {
+			return 0
 		}
 
 		// Escape sequence: ESC [ ... or ESC O ...
 		if b == 0x1b {
 			b2, ok2 := readByte(tty, false)
 			if !ok2 {
-				// bare Esc: exit hint mode if on, else cancel
-				if hintMode {
-					hintMode = false
-					autoArmed = false
-					continue
-				}
-				return 0
+				return 0 // bare Esc → cancel
 			}
 			if b2 != '[' && b2 != 'O' {
 				continue
@@ -132,20 +112,14 @@ func run() (code int) {
 			if !ok3 {
 				continue
 			}
-			if hintMode {
-				// ignore navigation while hint mode is on
-				continue
-			}
 			switch b3 {
 			case 'A', 'D': // up, left
 				if n := len(matches); n > 1 && n <= selectLimit {
 					selected = (selected - 1 + n) % n
-					autoArmed = false
 				}
 			case 'B', 'C', 'Z': // down, right, shift-tab
 				if n := len(matches); n > 1 && n <= selectLimit {
 					selected = (selected + 1) % n
-					autoArmed = false
 				}
 			}
 			continue
@@ -154,23 +128,11 @@ func run() (code int) {
 		switch {
 		case b == 0x03, b == 0x07:
 			return 0
-		case b == 0x09: // Tab → enter hint mode (or exit if already on)
-			if hintMode {
-				hintMode = false
-				autoArmed = false
-				continue
-			}
-			if n := len(matches); n > 1 && n <= selectLimit && len(hints) > 0 {
-				hintMode = true
-				autoArmed = false
-			}
 		case b == 0x7f, b == 0x08:
-			hintMode = false
 			if len(query) > 0 {
 				query = query[:len(query)-1]
 				matches = findMatches(rows, query)
 				selected = defaultSelected(len(matches))
-				autoArmed = true
 			}
 		case b == '\r', b == '\n':
 			if len(matches) >= 1 && selected < len(matches) {
@@ -178,13 +140,14 @@ func run() (code int) {
 				return 0
 			}
 		case b >= 0x20 && b < 0x7f:
-			if hintMode {
-				if idx := hintIndex(hints, rune(b)); idx >= 0 && idx < len(matches) {
-					writeResult(matches[idx])
+			// Label pick takes precedence over narrowing. By construction
+			// (assignLabels' exclusion step), an assigned label is never
+			// a valid pattern continuation, so the two paths are disjoint.
+			for i, l := range labels {
+				if l != 0 && l == rune(b) {
+					writeResult(matches[i])
 					return 0
 				}
-				// non-hint char: leave hint mode, fall through to narrow
-				hintMode = false
 			}
 			newQ := append(append([]rune{}, query...), rune(b))
 			newM := findMatches(rows, newQ)
@@ -199,7 +162,6 @@ func run() (code int) {
 				writeResult(matches[0])
 				return 0
 			}
-			autoArmed = true
 		}
 	}
 }
@@ -211,15 +173,6 @@ func defaultSelected(n int) int {
 		return n - 1
 	}
 	return 0
-}
-
-func hintIndex(hints []rune, r rune) int {
-	for i, h := range hints {
-		if h == r {
-			return i
-		}
-	}
-	return -1
 }
 
 // readByte reads one byte. If blocking is true, retries on timeout
@@ -244,20 +197,6 @@ func readByte(tty *os.File, blocking bool) (byte, bool) {
 			return 0, false
 		}
 	}
-}
-
-// readBytePoll waits up to N stty quanta (each ~100ms with time 1) for a
-// byte. Returns (b, true) if data arrived, (0, false) on timeout. Used to
-// fire auto-hint after a brief idle without losing the next keystroke.
-func readBytePoll(tty *os.File, quanta int) (byte, bool) {
-	buf := make([]byte, 1)
-	for i := 0; i < quanta; i++ {
-		n, _ := tty.Read(buf)
-		if n == 1 {
-			return buf[0], true
-		}
-	}
-	return 0, false
 }
 
 func parseRows(s string) [][]rune {

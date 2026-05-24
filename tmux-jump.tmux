@@ -38,14 +38,19 @@ select_key=$(tmux show-option -gqv @jump-key-select 2>/dev/null || echo "")
 hints=$(tmux show-option -gqv @jump-hints 2>/dev/null || echo "")
 [[ -z "$hints" ]] && hints=duhetonasi
 
-auto_hint_delay=$(tmux show-option -gqv @jump-auto-hint-delay 2>/dev/null || echo "")
+min_pattern_length=$(tmux show-option -gqv @jump-label-min-pattern-length 2>/dev/null || echo "")
+
+# Deprecation: @jump-auto-hint-delay is gone — labels render instantly now.
+if tmux show-option -gqv @jump-auto-hint-delay 2>/dev/null | grep -q .; then
+	tmux display-message "tmux-jump: @jump-auto-hint-delay is deprecated and ignored — labels now render instantly (flash-style)" 2>/dev/null || true
+fi
 
 tmux bind-key -N "Jump to visible text in copy mode" "$key" \
-	run-shell -b "JUMP_BINARY='$JUMP_BINARY' JUMP_HINTS='$hints' JUMP_AUTO_HINT_DELAY='$auto_hint_delay' $CURRENT_DIR/tmux-jump.sh" 2>/dev/null || true
+	run-shell -b "JUMP_BINARY='$JUMP_BINARY' JUMP_HINTS='$hints' JUMP_LABEL_MIN_PATTERN_LENGTH='$min_pattern_length' $CURRENT_DIR/tmux-jump.sh" 2>/dev/null || true
 
 if [[ -n "$select_key" ]]; then
 	tmux bind-key -N "Jump to visible text and select match in copy mode" "$select_key" \
-		run-shell -b "JUMP_BINARY='$JUMP_BINARY' JUMP_HINTS='$hints' JUMP_AUTO_HINT_DELAY='$auto_hint_delay' JUMP_SELECT=1 $CURRENT_DIR/tmux-jump.sh" 2>/dev/null || true
+		run-shell -b "JUMP_BINARY='$JUMP_BINARY' JUMP_HINTS='$hints' JUMP_LABEL_MIN_PATTERN_LENGTH='$min_pattern_length' JUMP_SELECT=1 $CURRENT_DIR/tmux-jump.sh" 2>/dev/null || true
 fi
 
 exit 0

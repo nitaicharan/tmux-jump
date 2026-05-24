@@ -58,16 +58,15 @@ Press `prefix + j` (default), start typing. That's it.
 
 | Key | Action |
 | --- | --- |
-| any printable char | append to query, re-narrow |
-| `Backspace` | pop last char |
+| any printable char | append to query (or pick a label if it matches one) |
+| `Backspace` | pop last char (labels for surviving positions are preserved) |
 | `Enter` | jump to selected match |
-| `Tab` | (≤10 matches) enter **hint mode** — overlay hint chars on matches |
-| hint char | (in hint mode) jump to that match |
+| label char | jump to that match |
 | `↑` `↓` `←` `→` | (≤10 matches) cycle selection |
-| `Esc` / `Ctrl-C` / `Ctrl-G` | cancel (or exit hint mode) |
+| `Esc` / `Ctrl-C` / `Ctrl-G` | cancel |
 
 - ✅ Unique match → auto-jump, no `Enter` needed
-- 🎯 ≤10 matches → hints auto-appear after ~300ms idle (or press `Tab` to show them now)
+- ⚡ **Labels render instantly** on every keystroke (flash.nvim-style). Pressing a label is always unambiguous — labels that would extend your query are dropped from the alphabet for that round, so the same key can never mean both "narrow" and "jump"
 - 🔔 Zero matches after a keystroke → bell, character rejected
 
 ---
@@ -75,14 +74,16 @@ Press `prefix + j` (default), start typing. That's it.
 ## ⚙️ Config
 
 ```tmux
-set -g @jump-key j                     # default: j  (invoked as prefix + j)
-set -g @jump-key-select J              # optional: jump, then visual-select the match
-set -g @jump-hints 'duhetonasi'        # up to 10 hint chars, one per match in hint mode
-set -g @jump-auto-hint-delay 300       # ms idle before hints auto-show (0 = disable, rounded up to nearest 100ms)
-set -g @jump-skip-wizard 0             # 1 = never prompt for auto-update on version mismatch
+set -g @jump-key j                          # default: j  (invoked as prefix + j)
+set -g @jump-key-select J                   # optional: jump, then visual-select the match
+set -g @jump-hints 'duhetonasi'             # up to 10 label chars
+set -g @jump-label-min-pattern-length 0     # query length before labels render (flash: label.min_pattern_length)
+set -g @jump-skip-wizard 0                  # 1 = never prompt for auto-update on version mismatch
 ```
 
 `@jump-key-select` is a second, opt-in binding: same picker, but on landing it enters copy-mode, begins a selection, and extends it across the matched query — ready to yank.
+
+> ⚠️ **Removed in this version:** `@jump-auto-hint-delay`. With flash-style label exclusion the timer is no longer meaningful — labels render synchronously. The plugin emits a one-time `tmux display-message` warning if it sees the option set in your config.
 
 ---
 
