@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tmux-jump wrapper: captures the visible pane, runs the Go TUI in a
 # borderless popup sized to the pane, then moves the copy-mode cursor
-# to the (row, col) picked by the user.
+# to the row/word-end picked by the user (or row/col under JUMP_SELECT=1).
 #
 # Defensive: every failure path falls back to a no-op cleanly. The
 # wrapper never leaves the pane stuck in copy-mode at a half-moved
@@ -82,11 +82,21 @@ tmux display-popup -E -B -w "$w" -h "$h" -x P -y P \
 
 [ -s "$res" ] || exit 0
 
-IFS=, read -r row col len <"$res" || exit 0
-[ -n "${row:-}" ] && [ -n "${col:-}" ] || exit 0
+IFS=, read -r row col word_end len <"$res" || exit 0
+[ -n "${row:-}" ] && [ -n "${col:-}" ] && [ -n "${word_end:-}" ] || exit 0
 case "$row" in '' | *[!0-9]*) exit 0 ;; esac
 case "$col" in '' | *[!0-9]*) exit 0 ;; esac
+case "$word_end" in '' | *[!0-9]*) exit 0 ;; esac
 case "${len:-}" in *[!0-9]*) len="" ;; esac
+
+# JUMP_SELECT keeps the cursor at the match start so begin-selection
+# + cursor-right Len-1 covers exactly the matched query. Default
+# landing is end-of-word for plain jumps.
+if [ "${JUMP_SELECT:-0}" = 1 ]; then
+	target_col="$col"
+else
+	target_col="$word_end"
+fi
 
 if [ "$in_copy" != 1 ]; then
 	tmux copy-mode -t "$pane" 2>/dev/null || exit 0
@@ -96,8 +106,8 @@ tmux send-keys -t "$pane" -X top-line 2>/dev/null || exit 0
 if [ "$row" -gt 0 ]; then
 	tmux send-keys -t "$pane" -N "$row" -X cursor-down 2>/dev/null || exit 0
 fi
-if [ "$col" -gt 0 ]; then
-	tmux send-keys -t "$pane" -N "$col" -X cursor-right 2>/dev/null || exit 0
+if [ "$target_col" -gt 0 ]; then
+	tmux send-keys -t "$pane" -N "$target_col" -X cursor-right 2>/dev/null || exit 0
 fi
 if [ "${JUMP_SELECT:-0}" = 1 ] && [ -n "${len:-}" ] && [ "$len" -gt 0 ]; then
 	tmux send-keys -t "$pane" -X begin-selection 2>/dev/null || exit 0
