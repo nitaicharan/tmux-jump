@@ -12,7 +12,7 @@ import (
 
 var (
 	capturePath   = flag.String("capture", "", "path to captured pane file")
-	outPath       = flag.String("out", "", "path to write result (row,col)")
+	outPath       = flag.String("out", "", "path to write result (row,col,wordEnd,len)")
 	width         = flag.Int("w", 80, "overlay width")
 	height        = flag.Int("h", 24, "overlay height")
 	hintsFlag     = flag.String("hints", defaultHints, "hint chars (up to 10) used as jump labels")
@@ -222,7 +222,7 @@ func parseRows(s string) [][]rune {
 }
 
 func writeResult(m Match) {
-	_ = os.WriteFile(*outPath, []byte(fmt.Sprintf("%d,%d,%d\n", m.Row, m.Col, m.Len)), 0644)
+	_ = os.WriteFile(*outPath, []byte(fmt.Sprintf("%d,%d,%d,%d\n", m.Row, m.Col, m.WordEnd, m.Len)), 0644)
 }
 
 func sttySave(tty *os.File) (string, error) {

@@ -6,7 +6,7 @@
 [![release](https://git.j4hangir.com/tmux/tmux-jump/-/badges/release.svg)](https://git.j4hangir.com/tmux/tmux-jump/-/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Like [`flash.nvim`](https://github.com/folke/flash.nvim) / [`leap.nvim`](https://github.com/ggandor/leap.nvim), but for the visible tmux pane. Press a key, start typing the word you're looking at, and the moment only one match remains the copy-mode cursor jumps there. No hints, no labels, no two-char mnemonics to memorise.
+Like [`flash.nvim`](https://github.com/folke/flash.nvim) / [`leap.nvim`](https://github.com/ggandor/leap.nvim), but for the visible tmux pane. Press a key, start typing the word you're looking at, and the moment only one match remains the copy-mode cursor jumps to the **end of that word**. No two-char mnemonics to memorise.
 
 ---
 
@@ -61,7 +61,7 @@ Press `prefix + j` (default), start typing. That's it.
 | any printable char | append to query (or pick a label if it matches one) |
 | `Backspace` | pop last char (labels for surviving positions are preserved) |
 | `Enter` | jump to selected match |
-| label char | jump to that match |
+| label char | jump to that match (overlaid at the end of the matched word) |
 | `↑` `↓` `←` `→` | (≤10 matches) cycle selection |
 | `Esc` / `Ctrl-C` / `Ctrl-G` | cancel |
 
@@ -116,13 +116,13 @@ prefix+j  →  capture-pane -p  →  display-popup -B  →  Go TUI
                                               unique match?
                                                        │ yes
                                                        ▼
-                                  copy-mode + cursor to (row, col)
+                                  copy-mode + cursor to (row, word-end)
 ```
 
 1. **Capture** the visible pane to a temp file (`tmux capture-pane -p`).
 2. **Overlay** a borderless `display-popup` sized exactly to the pane — perfect in-place redraw.
 3. **Render** the captured text in the Go TUI: matches highlighted, everything else dimmed.
-4. **Narrow** on each keystroke (smart-case substring). Unique match → popup closes, pane drops into copy-mode with the cursor on `(row, col)`.
+4. **Narrow** on each keystroke (smart-case substring). Unique match → popup closes, pane drops into copy-mode with the cursor at the **end of the matched word** (or at the match start when `@jump-key-select` is in play, so the selection can extend across the typed query).
 
 ---
 

@@ -40,6 +40,7 @@ func render(rows [][]rune, matches []Match, labels []rune, selected int, query s
 
 	hi := make([][]byte, len(rows))
 	hintGlyph := map[int]map[int]rune{}
+	hintShift := map[int]map[int]int{} // per (row, wordEnd): how many hints already placed
 	for i, m := range matches {
 		if m.Row >= len(hi) {
 			continue
@@ -54,12 +55,28 @@ func render(rows [][]rune, matches []Match, labels []rune, selected int, query s
 		for k := 0; k < m.Len && m.Col+k < len(hi[m.Row]); k++ {
 			hi[m.Row][m.Col+k] = mark
 		}
-		if i < len(labels) && labels[i] != 0 && m.Col < len(hi[m.Row]) {
-			hi[m.Row][m.Col] = 3
+		if i < len(labels) && labels[i] != 0 {
+			if hintShift[m.Row] == nil {
+				hintShift[m.Row] = map[int]int{}
+			}
+			idx := hintShift[m.Row][m.WordEnd]
+			hintShift[m.Row][m.WordEnd] = idx + 1
+
+			hintCol := m.WordEnd - idx
+			if hintCol < m.Col+m.Len {
+				hintCol = m.Col + m.Len
+			}
+			if hintCol >= len(hi[m.Row]) {
+				hintCol = len(hi[m.Row]) - 1
+			}
+			if hintCol < 0 {
+				continue
+			}
+			hi[m.Row][hintCol] = 3
 			if hintGlyph[m.Row] == nil {
 				hintGlyph[m.Row] = map[int]rune{}
 			}
-			hintGlyph[m.Row][m.Col] = labels[i]
+			hintGlyph[m.Row][hintCol] = labels[i]
 		}
 	}
 

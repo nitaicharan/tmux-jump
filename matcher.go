@@ -4,6 +4,7 @@ import "unicode"
 
 type Match struct {
 	Row, Col, Len int
+	WordEnd       int
 }
 
 type posID struct{ Row, Col int }
@@ -20,7 +21,7 @@ func findMatches(rows [][]rune, query []rune) []Match {
 		}
 		for c := 0; c+len(query) <= len(row); c++ {
 			if equalAt(row, c, query, cs) {
-				out = append(out, Match{Row: r, Col: c, Len: len(query)})
+				out = append(out, Match{Row: r, Col: c, Len: len(query), WordEnd: c + len(query)})
 			}
 		}
 	}

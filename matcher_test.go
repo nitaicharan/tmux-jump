@@ -21,10 +21,10 @@ func TestFindMatchesSubstring(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("want 2 matches, got %d: %+v", len(got), got)
 	}
-	if got[0].Row != 0 || got[0].Col != 0 || got[0].Len != 3 {
+	if got[0] != (Match{Row: 0, Col: 0, Len: 3, WordEnd: 3}) {
 		t.Errorf("match[0]=%+v", got[0])
 	}
-	if got[1].Row != 0 || got[1].Col != 8 {
+	if got[1] != (Match{Row: 0, Col: 8, Len: 3, WordEnd: 11}) {
 		t.Errorf("match[1]=%+v", got[1])
 	}
 }
@@ -51,6 +51,82 @@ func TestFindMatchesAcrossRows(t *testing.T) {
 	// alpha: col 0, col 4 | beta: col 3 | gamma: col 1, col 4
 	if len(got) != 5 {
 		t.Fatalf("want 5 matches across rows, got %d: %+v", len(got), got)
+	}
+}
+
+func TestFindMatchesWordEnd(t *testing.T) {
+	cases := []struct {
+		name  string
+		lines []string
+		query string
+		want  []Match
+	}{
+		{
+			name:  "WordEnd is just past the typed match (middle of word)",
+			lines: []string{"hello configuration world"},
+			query: "co",
+			// "co" at col 6; WordEnd = Col + Len = 8 (the 'n').
+			want: []Match{{Row: 0, Col: 6, Len: 2, WordEnd: 8}},
+		},
+		{
+			name:  "WordEnd is just past the typed match (start of word)",
+			lines: []string{"configuration world"},
+			query: "co",
+			want:  []Match{{Row: 0, Col: 0, Len: 2, WordEnd: 2}},
+		},
+		{
+			name:  "match runs to EOL — WordEnd equals row length",
+			lines: []string{"foo bar"},
+			query: "bar",
+			// "bar" at col 4 spans to EOL; WordEnd = 4 + 3 = 7 = len(row).
+			want: []Match{{Row: 0, Col: 4, Len: 3, WordEnd: 7}},
+		},
+		{
+			name:  "single-char match",
+			lines: []string{"a b c"},
+			query: "a",
+			want:  []Match{{Row: 0, Col: 0, Len: 1, WordEnd: 1}},
+		},
+		{
+			name:  "match inside path — hint lands at the typed prefix, not the slash/dot",
+			lines: []string{"src/config_test.go end"},
+			query: "co",
+			// "co" at col 4; WordEnd = 6 (between 'co' and 'n' of config_test.go).
+			want: []Match{{Row: 0, Col: 4, Len: 2, WordEnd: 6}},
+		},
+		{
+			name:  "match covers stem before extension dot",
+			lines: []string{"test.md test.pdf"},
+			query: "test",
+			// Each "test" yields WordEnd = Col + 4 (the '.').
+			want: []Match{
+				{Row: 0, Col: 0, Len: 4, WordEnd: 4},
+				{Row: 0, Col: 8, Len: 4, WordEnd: 12},
+			},
+		},
+		{
+			name:  "overlapping matches in one token — each gets its own WordEnd",
+			lines: []string{"aaaa"},
+			query: "aa",
+			want: []Match{
+				{Row: 0, Col: 0, Len: 2, WordEnd: 2},
+				{Row: 0, Col: 1, Len: 2, WordEnd: 3},
+				{Row: 0, Col: 2, Len: 2, WordEnd: 4},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := findMatches(rows(tc.lines...), []rune(tc.query))
+			if len(got) != len(tc.want) {
+				t.Fatalf("got %d matches, want %d: %+v", len(got), len(tc.want), got)
+			}
+			for i := range tc.want {
+				if got[i] != tc.want[i] {
+					t.Errorf("match[%d]=%+v want %+v", i, got[i], tc.want[i])
+				}
+			}
+		})
 	}
 }
 
